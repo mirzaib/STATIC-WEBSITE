@@ -1,0 +1,41 @@
+static loadScriptOrStyle(url, options) {
+  // provenance :<# **Smallscript EdgeS efekt** `efekt.js.st` github libraries #>
+  // returns    :<Promise#onload;onerror>
+  // options    :<# `fIgnoreCache`, `fAppendToHead`, `fUrlIsStyle`, `attrs:{}` #>
+  const head = document.head; let node = options?.fAppendToBody ? document.body : head;
+  const url_loader_cache = document.head.url_loader_cache
+    ? head.url_loader_cache
+    : (head.url_loader_cache = {script:{},link:{}})
+  const kind = (options?.fUrlIsStyle || /\.css(?:(?:\?|#).*)?$/i.test(url))
+    ? 'link' : 'script';
+  // check already-loaded cache
+  if(url_loader_cache[kind][url]) {
+    const el = url_loader_cache[kind][url];
+    // support `fIgnoreCache` reload-option; should not use on `head`
+    if(options?.fIgnoreCache)
+      el.remove();
+    else
+      return(new CustomEvent('cache',{detail:el}));
+  }
+  // (re)create and record it
+  const self = document.currentScript;
+  const el = url_loader_cache[kind][url] = document.createElement(kind);
+  const append = (!self || options?.fAppendToHead || options?.fAppendToBody)
+    ? el => node.appendChild(el)
+    : el => self.parentNode.insertBefore(el, self);
+  const load = new Promise((resolve, reject) => {
+    el.onload  = e => {e.detail = el;resolve(e)};
+    el.onerror = e => {e.detail = el;reject(e)};
+    // `onload` or `onerror` possibly alter `cache` value
+    // throw(new URIError(`The ${url} didn't load correctly.`))
+  });
+  // configure `module` attr, as appropriate
+  if(/\.mjs(?:(?:\?|#).*)?$/i.test(url))
+    el.type = 'module'
+  // configure other attrs as appropriate (referrer, nonce, etc)
+  for(const key in options?.attrs) {el[key] = attrs[key]}
+  // trigger it
+  if(kind === 'link') el.rel = 'stylesheet', el.href = url; else el.src = url;
+  append(el);
+  return(load);
+}
